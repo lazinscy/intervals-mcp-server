@@ -27,7 +27,7 @@ class Config:
     athlete_id: str
     intervals_api_base_url: str
     user_agent: str
-    mcp_api_key: str
+    mcp_api_key: str = ""
 
 
 _config_instance: Config | None = None  # pylint: disable=invalid-name
