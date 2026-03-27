@@ -27,6 +27,7 @@ class Config:
     athlete_id: str
     intervals_api_base_url: str
     user_agent: str
+    mcp_api_key: str
 
 
 _config_instance: Config | None = None  # pylint: disable=invalid-name
@@ -46,6 +47,7 @@ def load_config() -> Config:
     athlete_id = os.getenv("ATHLETE_ID", "")
     intervals_api_base_url = os.getenv("INTERVALS_API_BASE_URL", "https://intervals.icu/api/v1")
     user_agent = "intervalsicu-mcp-server/1.0"
+    mcp_api_key = os.getenv("MCP_API_KEY", "")
 
     # Validate athlete_id if provided (empty string is allowed)
     if athlete_id:
@@ -56,6 +58,7 @@ def load_config() -> Config:
         athlete_id=athlete_id,
         intervals_api_base_url=intervals_api_base_url,
         user_agent=user_agent,
+        mcp_api_key=mcp_api_key,
     )
 
 

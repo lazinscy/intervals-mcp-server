@@ -1,0 +1,77 @@
+name: Terraform Plan
+run-name: "Terraform Plan"
+
+on:
+  pull_request:
+    paths:
+      - "terraform/**"
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  WORKLOAD: intervals-mcp-server
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -backend-config="key=${WORKLOAD}-prod.tfstate"
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: terraform
+        env:
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_intervals_api_key: "placeholder"
+          TF_VAR_intervals_athlete_id: "placeholder"
+          TF_VAR_mcp_api_key: "placeholder"
+        run: |
+          terraform plan \
+            -var-file="environments/prod.tfvars" \
+            -no-color \
+            -out=tfplan 2>&1 | tee plan_output.txt
+
+      - name: Post plan as PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('terraform/plan_output.txt', 'utf8');
+            const truncated = plan.length > 60000
+              ? plan.substring(0, 60000) + '\n... (truncated)'
+              : plan;
+
+            const body = `### Terraform Plan
+
+            <details>
+            <summary>Show plan output</summary>
+
+            \`\`\`
+            ${truncated}
+            \`\`\`
+
+            </details>`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body,
+            });

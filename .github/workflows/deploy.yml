@@ -1,0 +1,144 @@
+name: Deploy
+run-name: "Deploy: ${{ github.event.release.tag_name || inputs.version || 'manual' }}"
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag to deploy (e.g. 1.2.3)"
+        required: true
+        type: string
+      environment:
+        description: "Target environment"
+        default: "prod"
+        type: choice
+        options: [prod]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  WORKLOAD: intervals-mcp-server
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install ".[dev]"
+      - name: Run tests
+        run: pytest -q
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+          ATHLETE_ID: ${{ secrets.ATHLETE_ID }}
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'prod' }}
+    env:
+      ENV: ${{ inputs.environment || 'prod' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: tag
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
+          fi
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::Invalid version format: $VERSION (expected: X.Y.Z)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Load app secrets from 1Password
+        uses: 1password/load-secrets-action@v3
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          INTERVALS_API_KEY: ${{ vars.OP_INTERVALS_API_KEY }}
+          INTERVALS_ATHLETE_ID: ${{ vars.OP_INTERVALS_ATHLETE_ID }}
+          MCP_API_KEY: ${{ vars.OP_MCP_API_KEY }}
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -backend-config="key=${WORKLOAD}-${ENV}.tfstate"
+
+      # Phase 1: Ensure ACR exists (no-op on existing infra).
+      - name: Ensure ACR exists
+        working-directory: terraform
+        env:
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_intervals_api_key: ${{ env.INTERVALS_API_KEY }}
+          TF_VAR_intervals_athlete_id: ${{ env.INTERVALS_ATHLETE_ID }}
+          TF_VAR_mcp_api_key: ${{ env.MCP_API_KEY }}
+        run: |
+          terraform apply -auto-approve \
+            -var-file="environments/${ENV}.tfvars" \
+            -target=azurerm_resource_group.main \
+            -target=azurerm_container_registry.acr
+
+      - name: Resolve ACR name
+        id: acr
+        run: |
+          ACR_NAME="${WORKLOAD//-/}${ENV}cr"
+          echo "name=$ACR_NAME" >> "$GITHUB_OUTPUT"
+          echo "server=${ACR_NAME}.azurecr.io" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to ACR
+        run: az acr login --name ${{ steps.acr.outputs.name }}
+
+      - name: Build and push image
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          docker buildx build --platform linux/amd64 \
+            -t "${{ steps.acr.outputs.server }}/$WORKLOAD:$VERSION" \
+            -t "${{ steps.acr.outputs.server }}/$WORKLOAD:latest" \
+            --push .
+
+      # Phase 2: Full apply (creates remaining resources or updates app).
+      - name: Terraform Apply
+        working-directory: terraform
+        env:
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_intervals_api_key: ${{ env.INTERVALS_API_KEY }}
+          TF_VAR_intervals_athlete_id: ${{ env.INTERVALS_ATHLETE_ID }}
+          TF_VAR_mcp_api_key: ${{ env.MCP_API_KEY }}
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          terraform apply -auto-approve \
+            -var-file="environments/${ENV}.tfvars" \
+            -var="image_tag=${VERSION}"
+
+      - name: Verify deployment
+        working-directory: terraform
+        run: |
+          sleep 15
+          FQDN=$(terraform output -raw app_fqdn)
+          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://$FQDN/mcp")
+          echo "MCP endpoint check: HTTP $HTTP_CODE"
+          echo "Deployed version: ${{ steps.tag.outputs.version }}"
+          # Streamable HTTP endpoint returns 405 for GET (expects POST), which confirms it's running
+          [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "405" ] || exit 1

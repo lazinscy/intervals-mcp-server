@@ -1,26 +1,39 @@
-FROM python:3.12-slim
+FROM python:3.12-slim AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Install build dependencies and Python build backend
+# Install build dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        build-essential \
-       curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python build tool
-RUN pip install --no-cache-dir hatchling
+# Install Python build tool and dependencies first (better layer caching)
+COPY pyproject.toml .
+COPY src/ src/
+COPY README.md .
+RUN pip install --no-cache-dir hatchling && pip install --no-cache-dir .
 
-# Copy project files
-COPY pyproject.toml pyproject.toml
-COPY src src
-COPY README.md README.md
-COPY .env.example .env.example
+FROM python:3.12-slim
 
-# Install the package and runtime dependencies
-RUN pip install --no-cache-dir .
+WORKDIR /app
 
-# Default command to run the MCP server using stdio transport
-CMD ["mcp", "run", "src/intervals_mcp_server/server.py"]
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application code
+COPY src/ src/
+COPY pyproject.toml .
+RUN pip install --no-cache-dir --no-deps .
+
+# Non-root user for runtime security
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/mcp')" || exit 1
+
+USER appuser
+CMD ["python", "src/intervals_mcp_server/server.py"]
