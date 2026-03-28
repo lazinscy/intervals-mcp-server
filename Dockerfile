@@ -25,6 +25,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY src/ src/
 COPY pyproject.toml .
+COPY README.md .
 RUN pip install --no-cache-dir --no-deps .
 
 # Non-root user for runtime security
