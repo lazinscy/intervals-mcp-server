@@ -139,6 +139,11 @@ resource "azurerm_container_app" "app" {
       }
 
       env {
+        name  = "FASTMCP_HOST"
+        value = "0.0.0.0"
+      }
+
+      env {
         name        = "API_KEY"
         secret_name = "intervals-api-key"
       }
