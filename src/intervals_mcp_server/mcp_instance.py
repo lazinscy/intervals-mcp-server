@@ -17,8 +17,8 @@ from intervals_mcp_server.config import get_config
 # Enable bearer token auth when MCP_API_KEY is set (HTTP/SSE modes only).
 _mcp_kwargs: dict = {"name": "intervals-icu", "lifespan": setup_api_client}
 _config = get_config()
-_public_url = os.getenv("MCP_PUBLIC_URL", "")
-if _config.mcp_api_key and _public_url:
+_public_url = os.getenv("MCP_PUBLIC_URL", "http://localhost:8000")
+if _config.mcp_api_key:
     _mcp_kwargs["token_verifier"] = ApiKeyVerifier(_config.mcp_api_key)
     _mcp_kwargs["auth"] = AuthSettings(
         issuer_url=_public_url,

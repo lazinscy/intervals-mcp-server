@@ -98,8 +98,6 @@ resource "azurerm_container_app" "app" {
     ignore_changes = [
       template[0].revision_suffix,
       template[0].container[0].image,
-      # MCP_PUBLIC_URL is set from FQDN after first deploy.
-      template[0].container[0].env[4].value,
     ]
   }
 
@@ -157,7 +155,7 @@ resource "azurerm_container_app" "app" {
 
       env {
         name  = "MCP_PUBLIC_URL"
-        value = var.mcp_public_url
+        value = "https://intervals.lazinscy.pl"
       }
     }
   }

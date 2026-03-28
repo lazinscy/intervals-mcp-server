@@ -44,8 +44,3 @@ variable "mcp_api_key" {
   sensitive   = true
 }
 
-variable "mcp_public_url" {
-  type        = string
-  description = "Public URL for auth issuer (e.g. https://<fqdn>). Leave empty on first deploy."
-  default     = ""
-}
