@@ -140,5 +140,6 @@ jobs:
             "https://$FQDN/mcp")
           echo "MCP endpoint check: HTTP $HTTP_CODE"
           echo "Deployed version: ${{ steps.tag.outputs.version }}"
-          # Streamable HTTP endpoint returns 405 for GET (expects POST), which confirms it's running
-          [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "405" ] || exit 1
+          # 401 = auth enabled (no token sent), 405 = endpoint alive (GET not allowed)
+          # Both confirm the server is running and reachable.
+          [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "405" ] || exit 1

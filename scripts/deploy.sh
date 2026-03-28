@@ -54,7 +54,7 @@ FQDN=$(terraform output -raw app_fqdn)
 HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://${FQDN}/mcp")
 echo "MCP endpoint check: HTTP ${HTTP_CODE}"
 echo "Deployed version: ${VERSION}"
-if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "405" ]; then
+if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "401" ] && [ "$HTTP_CODE" != "405" ]; then
     echo "Error: MCP endpoint check failed." >&2
     exit 1
 fi
