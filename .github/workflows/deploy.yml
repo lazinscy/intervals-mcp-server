@@ -127,9 +127,19 @@ jobs:
           TF_VAR_mcp_api_key: ${{ env.MCP_API_KEY }}
         run: |
           VERSION="${{ steps.tag.outputs.version }}"
+
           terraform apply -auto-approve \
             -var-file="environments/${ENV}.tfvars" \
             -var="image_tag=${VERSION}"
+
+          # Set MCP_PUBLIC_URL from FQDN (needed for auth issuer).
+          FQDN=$(terraform output -raw app_fqdn)
+          MCP_URL="https://${FQDN}"
+
+          terraform apply -auto-approve \
+            -var-file="environments/${ENV}.tfvars" \
+            -var="image_tag=${VERSION}" \
+            -var="mcp_public_url=${MCP_URL}"
 
       - name: Verify deployment
         working-directory: terraform
