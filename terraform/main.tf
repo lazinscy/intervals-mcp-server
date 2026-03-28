@@ -139,7 +139,7 @@ resource "azurerm_container_app" "app" {
       }
 
       env {
-        name  = "FASTMCP_HOST"
+        name  = "HOST"
         value = "0.0.0.0"
       }
 
