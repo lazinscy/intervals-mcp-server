@@ -54,6 +54,28 @@ async def _get_httpx_client() -> httpx.AsyncClient:
     return httpx_client
 
 
+async def close_api_client() -> None:
+    """
+    Close any shared httpx clients used by the server.
+
+    This is used both by the standalone FastMCP lifespan and by hosted-mode
+    shutdown hooks when the server is mounted inside a parent application.
+    """
+    # Close the module-level httpx_client
+    if httpx_client and not httpx_client.is_closed:
+        await httpx_client.aclose()
+
+    # Also close server.httpx_client if it exists (for test compatibility)
+    try:
+        server_module = sys.modules.get("intervals_mcp_server.server")
+        if server_module and hasattr(server_module, "httpx_client"):
+            server_client = getattr(server_module, "httpx_client", None)
+            if server_client is not None and not server_client.is_closed:
+                await server_client.aclose()
+    except (AttributeError, ImportError):
+        pass
+
+
 @asynccontextmanager
 async def setup_api_client(_app: FastMCP):
     """
@@ -65,20 +87,7 @@ async def setup_api_client(_app: FastMCP):
     try:
         yield
     finally:
-        # Close the module-level httpx_client
-        if httpx_client and not httpx_client.is_closed:
-            await httpx_client.aclose()
-
-        # Also close server.httpx_client if it exists (for test compatibility)
-        # This ensures monkeypatched clients in tests are properly closed
-        try:
-            server_module = sys.modules.get("intervals_mcp_server.server")
-            if server_module and hasattr(server_module, "httpx_client"):
-                server_client = getattr(server_module, "httpx_client", None)
-                if server_client is not None and not server_client.is_closed:
-                    await server_client.aclose()
-        except (AttributeError, ImportError):
-            pass
+        await close_api_client()
 
 
 def _get_error_message(error_code: int, error_text: str) -> str:
