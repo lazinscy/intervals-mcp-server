@@ -11,6 +11,14 @@ from intervals_mcp_server.api.client import close_api_client, setup_api_client
 
 mcp: FastMCP = FastMCP("intervals-icu", lifespan=setup_api_client)  # pylint: disable=invalid-name
 
+# Import tool modules so @mcp.tool() decorators execute and register
+# the tools on the shared mcp instance.  Without these imports, hosted
+# mode (generic-mcp) sees an empty tools list.
+import intervals_mcp_server.tools.activities  # noqa: E402, F401  # pylint: disable=wrong-import-position
+import intervals_mcp_server.tools.custom_items  # noqa: E402, F401  # pylint: disable=wrong-import-position
+import intervals_mcp_server.tools.events  # noqa: E402, F401  # pylint: disable=wrong-import-position
+import intervals_mcp_server.tools.wellness  # noqa: E402, F401  # pylint: disable=wrong-import-position
+
 
 async def init() -> None:
     """
