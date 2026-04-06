@@ -11,10 +11,127 @@ permissions:
 
 jobs:
   release:
-    uses: lazinscy/org-standards/.github/workflows/reusable-semantic-release.yml@main
-    with:
-      publish: true
-      publish_azure: true
-    secrets:
-      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-      AZURE_ARTIFACTS_PAT: ${{ secrets.AZURE_ARTIFACTS_PAT }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-azure-${{ github.ref_name }}
+      cancel-in-progress: false
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - name: Load App credentials from 1Password
+        uses: 1password/load-secrets-action@v3
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          AUTOMATION_APP_ID: ${{ vars.OP_LAZINSCY_AUTOMATION_APP_ID }}
+          AUTOMATION_APP_PRIVATE_KEY: ${{ vars.OP_LAZINSCY_AUTOMATION_APP_PRIVATE_KEY }}
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ env.AUTOMATION_APP_ID }}
+          private-key: ${{ env.AUTOMATION_APP_PRIVATE_KEY }}
+          owner: lazinscy
+
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Force branch to workflow sha
+        run: git reset --hard ${{ github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install python-semantic-release
+        run: pip install python-semantic-release==10.5.3
+
+      - name: Semantic Release
+        id: release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "lazinscy-automation[bot]"
+          git config user.email "${{ env.AUTOMATION_APP_ID }}+lazinscy-automation[bot]@users.noreply.github.com"
+
+          MAX_RETRIES=3
+          ATTEMPT=0
+          RELEASED=false
+          VERSION=""
+          TAG=""
+
+          while [ $ATTEMPT -lt $MAX_RETRIES ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "::notice::Semantic release attempt ${ATTEMPT}/${MAX_RETRIES}"
+
+            if [ $ATTEMPT -gt 1 ]; then
+              echo "Pulling latest changes before retry..."
+              git fetch origin ${{ github.ref_name }}
+              git rebase origin/${{ github.ref_name }}
+            fi
+
+            EXIT_CODE=0
+            OUTPUT=$(semantic-release --config pyproject.toml version 2>&1) || EXIT_CODE=$?
+
+            echo "$OUTPUT"
+
+            if [ "${EXIT_CODE}" -eq 0 ]; then
+              VERSION=$(echo "$OUTPUT" | grep -oP 'The next version is: \K[0-9]+\.[0-9]+\.[0-9]+' || true)
+              if [ -n "$VERSION" ]; then
+                RELEASED=true
+                TAG="${VERSION}"
+              fi
+              break
+            fi
+
+            if echo "$OUTPUT" | grep -q "Upstream branch has changed"; then
+              echo "::warning::Upstream SHA conflict detected, retrying..."
+              sleep $((ATTEMPT * 5))
+              continue
+            fi
+
+            echo "::error::Semantic release failed with unexpected error"
+            exit 1
+          done
+
+          if [ $ATTEMPT -ge $MAX_RETRIES ] && [ "$RELEASED" = "false" ]; then
+            echo "::error::Semantic release failed after ${MAX_RETRIES} attempts"
+            exit 1
+          fi
+
+          echo "released=${RELEASED}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Build package
+        if: steps.release.outputs.released == 'true'
+        run: |
+          pip install build
+          python -m build
+
+      - name: Upload to GitHub Release
+        if: steps.release.outputs.released == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh release upload "${{ steps.release.outputs.tag }}" dist/*
+
+      - name: Upload to Azure Artifacts
+        if: steps.release.outputs.released == 'true'
+        env:
+          TWINE_USERNAME: token
+          TWINE_PASSWORD: ${{ secrets.AZURE_ARTIFACTS_PAT }}
+          TWINE_REPOSITORY_URL: https://pkgs.dev.azure.com/lazinscy/_packaging/lazinscy/pypi/upload/
+        run: |
+          pip install twine
+          twine upload dist/*
