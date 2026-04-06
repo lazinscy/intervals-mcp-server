@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.0 (2026-04-06)
+
+### Features
+
+- Dispatch satellite-published event to generic-mcp after release
+  ([`a572e33`](https://github.com/lazinscy/intervals-mcp-server/commit/a572e330f0bbc940a2a5dad5ebcc31a9237c1185))
+
+
 ## v1.1.0 (2026-04-06)
 
 ### Continuous Integration
