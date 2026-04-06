@@ -1,0 +1,132 @@
+name: Sync upstream to satellite
+
+# Auto-create a PR from main to generic-mcp-satellite when main has new
+# commits. The PR title is conventional so semantic-release picks it up
+# and bumps the version on merge.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type (used in PR title prefix)"
+        required: true
+        default: "feat"
+        type: choice
+        options:
+          - feat
+          - fix
+          - chore
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Load App credentials from 1Password
+        uses: 1password/load-secrets-action@v3
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          AUTOMATION_APP_ID: ${{ vars.OP_LAZINSCY_AUTOMATION_APP_ID }}
+          AUTOMATION_APP_PRIVATE_KEY: ${{ vars.OP_LAZINSCY_AUTOMATION_APP_PRIVATE_KEY }}
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ env.AUTOMATION_APP_ID }}
+          private-key: ${{ env.AUTOMATION_APP_PRIVATE_KEY }}
+          owner: lazinscy
+
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Check if satellite needs sync
+        id: check
+        run: |
+          git fetch origin generic-mcp-satellite main
+
+          BEHIND=$(git rev-list --count origin/generic-mcp-satellite..origin/main)
+          echo "Satellite is behind main by $BEHIND commits"
+
+          if [ "$BEHIND" = "0" ]; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "No sync needed"
+            exit 0
+          fi
+
+          echo "needed=true" >> "$GITHUB_OUTPUT"
+
+          # Get the range of commits being synced.
+          MAIN_SHA=$(git rev-parse origin/main)
+          SAT_SHA=$(git rev-parse origin/generic-mcp-satellite)
+          echo "main_sha=${MAIN_SHA:0:7}" >> "$GITHUB_OUTPUT"
+          echo "sat_sha=${SAT_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
+          # Build a summary of upstream commits.
+          SUMMARY=$(git log --format='- %s' origin/generic-mcp-satellite..origin/main | head -20)
+          {
+            echo "summary<<EOF"
+            echo "$SUMMARY"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create or update sync branch
+        if: steps.check.outputs.needed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+
+          BRANCH="chore/sync-upstream-to-satellite"
+
+          git config user.name "lazinscy-automation[bot]"
+          git config user.email "${{ env.AUTOMATION_APP_ID }}+lazinscy-automation[bot]@users.noreply.github.com"
+
+          # Check if PR already exists.
+          EXISTING_PR=$(gh pr list --base generic-mcp-satellite --head "$BRANCH" --json number --jq '.[0].number' || echo "")
+
+          # Force-update sync branch to current main.
+          git push origin "origin/main:refs/heads/$BRANCH" --force
+
+          BUMP="${{ inputs.bump || 'feat' }}"
+          TITLE="${BUMP}: sync upstream ${{ steps.check.outputs.sat_sha }}..${{ steps.check.outputs.main_sha }}"
+          BODY="$(cat <<BODYEOF
+          ## Summary
+
+          Auto-generated PR syncing main → generic-mcp-satellite.
+
+          When merged with squash + this PR title, semantic-release on the
+          satellite branch will bump the version and publish to Azure Artifacts.
+
+          ## Upstream commits
+
+          ${{ steps.check.outputs.summary }}
+
+          ## How to use
+
+          1. Review changes
+          2. Squash merge with the PR title above (or override with a different conventional commit)
+          3. semantic-release on \`generic-mcp-satellite\` will bump version and publish
+          BODYEOF
+          )"
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "Updating existing PR #$EXISTING_PR"
+            gh pr edit "$EXISTING_PR" --title "$TITLE" --body "$BODY"
+          else
+            echo "Creating new PR"
+            gh pr create \
+              --base generic-mcp-satellite \
+              --head "$BRANCH" \
+              --title "$TITLE" \
+              --body "$BODY"
+          fi
