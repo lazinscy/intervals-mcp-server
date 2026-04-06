@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.1.0 (2026-04-06)
+
+### Continuous Integration
+
+- Auto-create sync PR from main to generic-mcp-satellite
+  ([`faa4f0e`](https://github.com/lazinscy/intervals-mcp-server/commit/faa4f0e977d4597a4e836e2d69ad56d35bc95c7a))
+
+### Features
+
+- Sync upstream faa4f0e..a668dbc ([#5](https://github.com/lazinscy/intervals-mcp-server/pull/5),
+  [`22c6a08`](https://github.com/lazinscy/intervals-mcp-server/commit/22c6a08de64ce930b5931d4916b22eb17c42c455))
+
+
 ## v1.0.0 (2026-04-06)
 
 - Initial Release
