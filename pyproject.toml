@@ -115,3 +115,16 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.uv]
 index-url = "https://pypi.org/simple"
+
+[tool.semantic_release]
+tag_format = "{version}"
+version_toml = ["pyproject.toml:project.version"]
+commit_message = "chore(release): {version} [skip ci]"
+commit_author = "lazinscy-automation[bot] <3089582+lazinscy-automation[bot]@users.noreply.github.com>"
+
+[tool.semantic_release.changelog]
+exclude_commit_patterns = ["chore\\(release\\):"]
+
+[tool.semantic_release.branches.generic-mcp-satellite]
+match = "generic-mcp-satellite"
+prerelease = false
