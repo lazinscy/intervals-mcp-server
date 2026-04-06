@@ -1,0 +1,20 @@
+name: Release to Azure Artifacts
+run-name: "Release: ${{ github.event.head_commit.message }}"
+
+on:
+  push:
+    branches: [generic-mcp-satellite]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: lazinscy/org-standards/.github/workflows/reusable-semantic-release.yml@main
+    with:
+      publish: true
+      publish_azure: true
+    secrets:
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+      AZURE_ARTIFACTS_PAT: ${{ secrets.AZURE_ARTIFACTS_PAT }}
