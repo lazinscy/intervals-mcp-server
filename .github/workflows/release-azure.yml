@@ -1,9 +1,9 @@
 name: Release to Azure Artifacts
-run-name: "Release: ${{ github.event.head_commit.message }}"
 
 on:
   push:
-    branches: [generic-mcp-satellite]
+    branches:
+      - generic-mcp-satellite
   workflow_dispatch:
 
 permissions:
