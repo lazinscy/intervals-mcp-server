@@ -135,3 +135,15 @@ jobs:
         run: |
           pip install twine
           twine upload dist/*
+
+      - name: Notify generic-mcp of new satellite version
+        if: steps.release.outputs.released == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh api repos/lazinscy/generic-mcp/dispatches \
+            -X POST \
+            -f event_type=satellite-published \
+            -F "client_payload[satellite]=intervals-mcp-server" \
+            -F "client_payload[version]=${{ steps.release.outputs.version }}"
+          echo "Dispatched satellite-published event to generic-mcp"
