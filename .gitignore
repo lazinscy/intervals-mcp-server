@@ -183,3 +183,6 @@ TODO
 .claude/
 .DS_Store
 CLAUDE.md
+
+# AgentOps session artifacts
+.agents/
