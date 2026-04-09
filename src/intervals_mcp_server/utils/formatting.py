@@ -241,14 +241,25 @@ def _format_subjective_feelings(entries: dict[str, Any]) -> list[str]:
 
 
 def _format_nutrition_hydration(entries: dict[str, Any]) -> list[str]:
-    """Format nutrition and hydration section."""
+    """Format nutrition and hydration section.
+
+    Handles both legacy fields (kcalConsumed, hydrationVolume) and the native
+    macro fields that Intervals.icu added in February 2026 (carbs, protein,
+    fat). All fields are rendered conditionally — a null/missing value hides
+    the corresponding line for backward compatibility with older wellness
+    records.
+    """
     nutrition_lines = []
-    for k, label in [
-        ("kcalConsumed", "Calories Consumed"),
-        ("hydrationVolume", "Hydration Volume"),
+    for k, label, unit in [
+        ("kcalConsumed", "Calories Consumed", ""),
+        ("carbs", "Carbohydrates", "g"),
+        ("protein", "Protein", "g"),
+        ("fat", "Fat", "g"),
+        ("hydrationVolume", "Hydration Volume", ""),
     ]:
         if entries.get(k) is not None:
-            nutrition_lines.append(f"- {label}: {entries[k]}")
+            suffix = f" {unit}" if unit else ""
+            nutrition_lines.append(f"- {label}: {entries[k]}{suffix}")
 
     if entries.get("hydration") is not None:
         nutrition_lines.append(f"  Hydration Score: {entries['hydration']}/10")
@@ -283,7 +294,7 @@ def format_wellness_entry(entries: dict[str, Any], include_all_fields: bool = Fa
             - Sleep: sleepSecs, sleepHours, sleepQuality, sleepScore, readiness
             - Menstrual: menstrualPhase, menstrualPhasePredicted
             - Subjective: soreness, fatigue, stress, mood, motivation, injury
-            - Nutrition: kcalConsumed, hydrationVolume, hydration
+            - Nutrition: kcalConsumed, carbs, protein, fat, hydrationVolume, hydration
             - Activity: steps
             - Other: comments, locked, date
 
