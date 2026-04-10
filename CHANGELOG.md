@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.1 (2026-04-10)
+
+### Bug Fixes
+
+- **build**: Remove broken hatch.build.include whitelist
+  ([`4ee73cf`](https://github.com/lazinscy/intervals-mcp-server/commit/4ee73cfe5b463decfabf38fa2e82a05179b1ed76))
+
+
 ## v1.3.0 (2026-04-10)
 
 ### Features
