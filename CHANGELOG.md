@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.0 (2026-04-10)
+
+### Features
+
+- Add AgentOps session artifacts to .gitignore
+  ([`da3ce96`](https://github.com/lazinscy/intervals-mcp-server/commit/da3ce964cbb86d8a98fb0cbc15af626671bd7529))
+
+
 ## v1.2.1 (2026-04-10)
 
 ### Bug Fixes
