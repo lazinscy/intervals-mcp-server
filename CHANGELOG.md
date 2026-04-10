@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.1 (2026-04-10)
+
+### Bug Fixes
+
+- **wellness**: Correct macro field names to match Intervals.icu API
+  ([`12dab34`](https://github.com/lazinscy/intervals-mcp-server/commit/12dab34562df413c43c2346cc038b4d539b64003))
+
+
 ## v1.2.0 (2026-04-06)
 
 ### Features
