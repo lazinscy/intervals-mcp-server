@@ -102,15 +102,14 @@ def test_format_wellness_entry_no_extra_fields_by_default():
 
 def test_format_wellness_entry_macros_populated():
     """
-    Test that format_wellness_entry renders native nutrition macros (carbs,
-    protein, fat) in grams when present. These fields were added to the
-    Intervals.icu API in February 2026.
+    Test that format_wellness_entry renders native nutrition macros
+    (carbohydrates, protein, fatTotal) in grams when present.
     """
     entry = {
         "id": "2026-04-08",
-        "carbs": 310,
+        "carbohydrates": 310,
         "protein": 145,
-        "fat": 72,
+        "fatTotal": 72,
     }
     result = format_wellness_entry(entry)
     assert "Nutrition & Hydration:" in result
@@ -128,9 +127,9 @@ def test_format_wellness_entry_macros_null_hidden():
     entry = {
         "id": "2026-04-08",
         "ctl": 80,
-        "carbs": None,
+        "carbohydrates": None,
         "protein": None,
-        "fat": None,
+        "fatTotal": None,
     }
     result = format_wellness_entry(entry)
     assert "Carbohydrates" not in result

@@ -244,17 +244,17 @@ def _format_nutrition_hydration(entries: dict[str, Any]) -> list[str]:
     """Format nutrition and hydration section.
 
     Handles both legacy fields (kcalConsumed, hydrationVolume) and the native
-    macro fields that Intervals.icu added in February 2026 (carbs, protein,
-    fat). All fields are rendered conditionally — a null/missing value hides
-    the corresponding line for backward compatibility with older wellness
-    records.
+    macro fields from the Intervals.icu API (carbohydrates, protein,
+    fatTotal). All fields are rendered conditionally — a null/missing value
+    hides the corresponding line for backward compatibility with older
+    wellness records.
     """
     nutrition_lines = []
     for k, label, unit in [
         ("kcalConsumed", "Calories Consumed", ""),
-        ("carbs", "Carbohydrates", "g"),
+        ("carbohydrates", "Carbohydrates", "g"),
         ("protein", "Protein", "g"),
-        ("fat", "Fat", "g"),
+        ("fatTotal", "Fat", "g"),
         ("hydrationVolume", "Hydration Volume", ""),
     ]:
         if entries.get(k) is not None:
@@ -294,7 +294,7 @@ def format_wellness_entry(entries: dict[str, Any], include_all_fields: bool = Fa
             - Sleep: sleepSecs, sleepHours, sleepQuality, sleepScore, readiness
             - Menstrual: menstrualPhase, menstrualPhasePredicted
             - Subjective: soreness, fatigue, stress, mood, motivation, injury
-            - Nutrition: kcalConsumed, carbs, protein, fat, hydrationVolume, hydration
+            - Nutrition: kcalConsumed, carbohydrates, protein, fatTotal, hydrationVolume, hydration
             - Activity: steps
             - Other: comments, locked, date
 
@@ -303,9 +303,11 @@ def format_wellness_entry(entries: dict[str, Any], include_all_fields: bool = Fa
     """
     if include_all_fields:
         entries = _KeyTracker(entries)
-        # Mark metadata keys so they don't appear in "Other Fields"
+        # Mark metadata/internal keys so they don't appear in "Other Fields"
         entries.get("date")
         entries.get("updated")
+        entries.get("tempWeight")
+        entries.get("tempRestingHR")
 
     lines = ["Wellness Data:"]
     lines.append(f"Date: {entries.get('id', 'N/A')}")

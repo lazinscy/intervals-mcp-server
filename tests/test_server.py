@@ -167,8 +167,9 @@ def test_get_wellness_data(monkeypatch):
 
 def test_get_wellness_data_renders_macros(monkeypatch):
     """
-    Integration test: native nutrition macros (carbs, protein, fat) flow from
-    the API response through get_wellness_data into the formatted output.
+    Integration test: native nutrition macros (carbohydrates, protein,
+    fatTotal) flow from the API response through get_wellness_data into the
+    formatted output.
 
     Mirrors test_get_wellness_data above. Covers the full tool path:
     make_intervals_request (mocked) -> format_wellness_entry -> string output.
@@ -176,9 +177,9 @@ def test_get_wellness_data_renders_macros(monkeypatch):
     wellness = [
         {
             "id": "2026-04-08",
-            "carbs": 310,
+            "carbohydrates": 310,
             "protein": 145,
-            "fat": 72,
+            "fatTotal": 72,
         }
     ]
 
