@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.2 (2026-04-12)
+
+### Bug Fixes
+
+- **activity**: Clarify calories label as "Calories burned" with kcal unit
+  ([`0dda6f3`](https://github.com/lazinscy/intervals-mcp-server/commit/0dda6f3b5b16d9a75dadb02dbb8ec0d0c9655cfb))
+
+
 ## v1.3.1 (2026-04-10)
 
 ### Bug Fixes
