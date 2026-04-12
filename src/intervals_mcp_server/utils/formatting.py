@@ -82,7 +82,7 @@ Decoupling: {activity.get("decoupling", "N/A")}
 
 Other Metrics:
 Cadence: {activity.get("average_cadence", "N/A")} rpm
-Calories: {activity.get("calories", "N/A")}
+Calories burned: {activity.get("calories", "N/A")} kcal
 Average Speed: {activity.get("average_speed", "N/A")} m/s
 Max Speed: {activity.get("max_speed", "N/A")} m/s
 Average Stride: {activity.get("average_stride", "N/A")}
